@@ -1,0 +1,77 @@
+{
+  "name": "@argszero/dsh-upload-index-cache",
+  "description": "Resolving a retained image to its DeepSeek file id re-reads and re-validates the whole upload index, once per image per HTTP attempt: DeepSeekUploadIndex.get() calls load(), which reads files-v3.json and runs its parser over every record. Measured on the published 0.2.1-alpha.1 bundle with a 500-record index, that read and parse is 99.3% of a lookup (read 13.5%, JSON.parse 31.7%, per-record validation 54.1%, the linear .find 0.7%). This plugin memoizes load() and nothing else: it stats the file's inode, size and mtime, and re-reads only when they change, which every local write does because writes go through writeFileAtomic's rename. The parser, the expiry rule, the lock, the atomic write, the v3 format and get()'s own linear scan all stay core's, so the only observable difference is how often the file is read. mode: 'observe' counts the same lookups and patches nothing, because the read amplification is a property of the deployment and should be measured before it is cached. Find the index without importing a second copy of the package: it is a private field of the adapter, so the plugin takes live instances from llm.registerAdapter and, best-effort, from the registry's own adapter map, and reports what it did not cover. Zero runtime dependencies, fail-open, no sandbox changes.",
+  "version": "0.1.0",
+  "publishConfig": {
+    "access": "public"
+  },
+  "type": "module",
+  "main": "lib/index.js",
+  "types": "lib/types/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./lib/types/index.d.ts",
+      "default": "./lib/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib/**/*.js",
+    "lib/types/**/*.d.ts",
+    "cordis.patch.yml",
+    "README.md",
+    "LICENSE"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/argszero/dsh-upload-index-cache.git"
+  },
+  "homepage": "https://github.com/argszero/dsh-upload-index-cache#readme",
+  "bugs": {
+    "url": "https://github.com/argszero/dsh-upload-index-cache/issues"
+  },
+  "keywords": [
+    "cordis",
+    "deepseek-harness",
+    "dsh",
+    "plugin",
+    "performance",
+    "cache",
+    "memoize",
+    "llm-deepseek",
+    "files-api",
+    "upload-index",
+    "attachments",
+    "images"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "^4.0.2",
+    "@deepseek-ai/dsh-llm": ">=0.1.7-rc.2 <0.2.0 || >=0.2.0-rc.2 <0.2.1"
+  },
+  "devDependencies": {
+    "@deepseek-ai/cordis": "^4.0.4",
+    "@deepseek-ai/dsh-llm": "0.2.0-rc.2",
+    "@deepseek-ai/dsh-llm-deepseek": "0.2.0-rc.2",
+    "@types/node": "^24.19.1",
+    "@types/semver": "^7.8.0",
+    "semver": "^7.8.5",
+    "typescript": "^5.9.3"
+  },
+  "scripts": {
+    "build": "tsc",
+    "pretest": "tsc",
+    "test": "node --test \"test/*.spec.mjs\"",
+    "test:inject": "node scripts/inject-defects.mjs",
+    "test:probe-lines": "node scripts/probe-lines.mjs",
+    "prepublishOnly": "tsc"
+  },
+  "engines": {
+    "node": "^22.19 || >=24"
+  }
+}

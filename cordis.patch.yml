@@ -1,0 +1,51 @@
+# The @argszero/dsh-upload-index-cache bundle patch: mount and go.
+#
+# One report (#8814) measures where an image-heavy session's time goes, and the
+# answer is not the network. Resolving a retained image to its DeepSeek file id
+# re-reads and re-validates the *whole* upload index, once per image, per HTTP
+# attempt:
+#
+#   adapter.ts:95   prepareFileIds(messages, versions, files)
+#   images.ts:99      for each image reference: await files.resolve(...)
+#   request-files.ts:116  resolve → DeepSeekFileStore.ensureUploaded
+#   file-store.ts:188     ensureUploadedOnce → (:200) this.index.get(scope, variantId, now, margin)
+#   upload-index.ts:149   get() → (:123) load() = readFile + parse + validate + linear .find
+#
+# Measured on the published 0.2.1-alpha.1 bundle with a 500-record index, that
+# read-and-parse is 99.3% of a lookup — read 13.5%, JSON.parse 31.7%, the
+# per-record validation 54.1%, and the linear .find 0.7%. The store's `inflight`
+# map deduplicates only while an upload promise has not settled, so it does
+# nothing for a session whose images are already uploaded: every request after
+# the first pays the full parse again, once per image.
+#
+# This patch memoizes `load()` — the read and the parse — and re-reads only when
+# the file's identity changes. The file is written by `writeFileAtomic`, which
+# renames a random-suffix sibling over the target, so the inode changes on every
+# local write; the memo keys on (ino, size, mtimeMs) and therefore sees a write
+# that lands inside the same millisecond as a preceding read.
+#
+# What it deliberately does NOT do is re-implement anything: the parser, the
+# expiry rule, the file lock, the atomic write, the v3 format and `get()`'s own
+# linear scan all stay core's. A cache that also guessed at `get()`'s semantics
+# would be a second implementation of the thing it is speeding up, and its
+# disagreements with core would surface as expired file ids.
+#
+# `DeepSeekUploadIndex` is not a cordis service — the deepseek host builds the
+# adapter with no `resolveFiles`, the adapter builds a store, and the store
+# builds the index, so it is a private field of a private field. The plugin
+# therefore finds live instances through two seams (the public
+# `llm.registerAdapter` call, and the registry's own adapter map for adapters
+# registered before mount) and patches the **instance**, never a prototype: a
+# prototype belongs to whichever copy of the package happened to be imported,
+# and patching the wrong copy is a failure this repository has already shipped.
+#
+# This patch mounts the plugin, and changes nothing else. `mode: 'cache'`
+# (default) retains the parsed document; `observe` counts the same lookups and
+# patches nothing, which is how an operator measures the read amplification in
+# their own deployment before trusting a cache with it; `off` installs nothing
+# at all. The counters and the coverage report — including the indexes it could
+# not reach — are provided as the `uploadIndexCache` service.
+
+- insert:
+    - id: upload-index-cache
+      name: '@argszero/dsh-upload-index-cache'

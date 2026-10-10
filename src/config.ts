@@ -63,12 +63,20 @@ export interface Settings {
 }
 
 /**
- * The reference defaults, also exported as the plugin's `Config`.
+ * The reference defaults: the value behind every absent knob.
  *
- * A plain object rather than a schema: every value is a primitive or a list of
- * primitives, and a plugin that fails to mount because a configuration library
- * disagreed with the operator would be a worse trade than one that reads what it
- * was given and falls back per field.
+ * A plain object rather than a schema, by design: every value is a primitive or
+ * a list of primitives, and a plugin that fails to mount because a configuration
+ * library disagreed with the operator would be a worse trade than one that reads
+ * what it was given and falls back per field.
+ *
+ * That leniency is exactly why this object must **not** be exported as the
+ * plugin's `Config`. Cordis validates a mounted plugin's `Config` through
+ * `Config['~standard'].validate`, and a plain object has no `~standard`, so
+ * naming it `Config` is what made every mount of this package throw before
+ * `apply` ran. The entry point exports `{ name, inject, apply }` with no
+ * `Config`, and the defaults arrive through `apply(ctx, config = {})` — where the
+ * per-field fallback above is applied.
  */
 export const defaultConfig: Required<Config> = {
   mode: 'cache',

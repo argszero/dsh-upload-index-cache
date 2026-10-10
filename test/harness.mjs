@@ -112,7 +112,11 @@ export async function world(spec = {}) {
     /** The mounted fork, once `mount()` has run. */
     fork: undefined,
     mount: async () => {
-      harness.fork = await ctx.plugin(plugin, spec.config ?? {})
+      // `plugin` is this module's namespace; a loader entry mounts its **default**
+      // export (`exports.default ?? exports`), and the two differ by the `Config` key.
+      // `plugin: 'default'` mounts the object a profile entry actually reaches — see
+      // test/mount.spec.mjs for the defect that difference hides.
+      harness.fork = await ctx.plugin(spec.plugin === 'default' ? plugin.default : plugin, spec.config ?? {})
       return harness
     },
     /** Unmount this plugin, leaving the registry and every adapter in place. */

@@ -64,7 +64,7 @@ mutates the array the memo holds.
 ## Install
 
 ```sh
-npm install @argszero/dsh-upload-index-cache@0.1.0
+npm install @argszero/dsh-upload-index-cache@0.1.1
 ```
 
 Then mount it. The package ships a bundle patch

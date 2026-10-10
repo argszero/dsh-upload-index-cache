@@ -1,7 +1,7 @@
 {
   "name": "@argszero/dsh-upload-index-cache",
   "description": "Resolving a retained image to its DeepSeek file id re-reads and re-validates the whole upload index, once per image per HTTP attempt: DeepSeekUploadIndex.get() calls load(), which reads files-v3.json and runs its parser over every record. Measured on the published 0.2.1-alpha.1 bundle with a 500-record index, that read and parse is 99.3% of a lookup (read 13.5%, JSON.parse 31.7%, per-record validation 54.1%, the linear .find 0.7%). This plugin memoizes load() and nothing else: it stats the file's inode, size and mtime, and re-reads only when they change, which every local write does because writes go through writeFileAtomic's rename. The parser, the expiry rule, the lock, the atomic write, the v3 format and get()'s own linear scan all stay core's, so the only observable difference is how often the file is read. mode: 'observe' counts the same lookups and patches nothing, because the read amplification is a property of the deployment and should be measured before it is cached. Find the index without importing a second copy of the package: it is a private field of the adapter, so the plugin takes live instances from llm.registerAdapter and, best-effort, from the registry's own adapter map, and reports what it did not cover. Zero runtime dependencies, fail-open, no sandbox changes.",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "publishConfig": {
     "access": "public"
   },
